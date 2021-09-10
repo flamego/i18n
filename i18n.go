@@ -5,7 +5,6 @@
 package i18n
 
 import (
-	"math"
 	"net/http"
 	"reflect"
 
@@ -107,7 +106,9 @@ func I18n(opts ...Options) flamego.Handler {
 			opts.Cookie.Path = "/"
 		}
 		if opts.Cookie.MaxAge <= 0 {
-			opts.Cookie.MaxAge = math.MaxInt
+			// TODO: math.MaxInt is only available since Go 1.17, should start using it once
+			//  Go 1.17 becomes the minimum required version.
+			opts.Cookie.MaxAge = 2 ^ 31 - 1 // = 2147483647 = 2038-01-19 04:14:07
 		}
 
 		return opts
