@@ -60,7 +60,7 @@ type Options struct {
 	// Languages is the list of languages to load locale files for.
 	Languages []Language
 	// Default is the name of the default language to fall back for missing
-	// translations. Default is none.
+	// translations. Default is the first element of Languages.
 	Default string
 	// NameFormat is the name format of locale files. Default is "locale_%s.ini".
 	NameFormat string
@@ -153,6 +153,14 @@ func I18n(opts ...Options) flamego.Handler {
 	parseOptions := func(opts Options) Options {
 		if opts.Directory == "" {
 			opts.Directory = "locales"
+		}
+
+		if len(opt.Languages) == 0 {
+			panic("i18n: no languages")
+		}
+
+		if opt.Default == "" {
+			opt.Default = opt.Languages[0].Name
 		}
 
 		if opts.NameFormat == "" {
