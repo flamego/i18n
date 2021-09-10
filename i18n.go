@@ -5,8 +5,16 @@
 package i18n
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path"
 	"reflect"
+
+	"github.com/go-i18n/i18n"
+	"github.com/pkg/errors"
+	"golang.org/x/text/language"
 
 	"github.com/flamego/flamego"
 )
@@ -38,16 +46,15 @@ type Language struct {
 
 // Options contains options for the i18n.I18n middleware.
 type Options struct {
+	// FileSystem is the interface for supporting any implementation of the
+	// http.FileSystem.
+	FileSystem http.FileSystem
 	// Directory is the primary directory to load locale files. This value is
 	// ignored when FileSystem is set. Default is "locales".
 	Directory string
 	// AppendDirectories is a list of additional directories to load locale files
-	// for overwriting locale files that are loaded from Directory. This value is
-	// ignored when FileSystem is set.
+	// for overwriting locale files that are loaded from FileSystem or Directory.
 	AppendDirectories []string
-	// FileSystem is the interface for supporting any implementation of the
-	// http.FileSystem.
-	FileSystem http.FileSystem
 	// Languages is the list of languages to load locale files for.
 	Languages []Language
 	// Default is the name of the default language to fall back for missing
@@ -55,15 +62,82 @@ type Options struct {
 	Default string
 	// NameFormat is the name format of locale files. Default is "locale_%s.ini".
 	NameFormat string
-	// URLParameter is the name of the URL parameter to accept language override.
-	// Default is "lang".
-	URLParameter string
+	// QueryParameter is the name of the URL query parameter to accept language
+	// override. Default is "lang".
+	QueryParameter string
 	// Cookie is a set of options for setting HTTP cookies.
 	Cookie CookieOptions
 }
 
-// todo
-type Locale struct {
+// Locale is the message translator of a language.
+type Locale interface {
+	// Lang returns the BCP 47 language name of the locale.
+	Lang() string
+	// Description returns the descriptive name of the locale.
+	Description() string
+	// Translate translates the message of the given key. It falls back to use the
+	// "Default" to translate if the given key does not exist in the current locale.
+	Translate(key string, args ...interface{}) string
+}
+
+type locale struct {
+	fallback *i18n.Locale
+	current  *i18n.Locale
+}
+
+func (l *locale) Lang() string {
+	return l.current.Lang()
+}
+
+func (l *locale) Description() string {
+	return l.current.Description()
+}
+
+func (l *locale) Translate(key string, args ...interface{}) string {
+	return l.current.TranslateWithFallback(l.fallback, key, args...)
+}
+
+// initLocales initializes a locale store with list of provided languages
+// loading from http.FileSystem and/or local files. If both `fs` and `dir` are
+// provided, only `fs` is considered.
+func initLocales(langs []Language, nameFormat string, fs http.FileSystem, dir string, others ...string) (*i18n.Store, language.Matcher, error) {
+	s := i18n.NewStore()
+
+	tags := make([]language.Tag, 0, len(langs))
+	for _, lang := range langs {
+		tag, err := language.Parse(lang.Name)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "parse %q", lang.Name)
+		}
+		tags = append(tags, tag)
+
+		filename := fmt.Sprintf(nameFormat, lang.Name)
+		var source io.ReadCloser
+		if fs != nil {
+			source, err = fs.Open(filename)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "open %q from FileSystem", filename)
+			}
+		} else {
+			fullpath := path.Join(dir, filename)
+			source, err = os.Open(fullpath)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "open %q from local", fullpath)
+			}
+		}
+
+		otherSources := make([]interface{}, 0, len(others))
+		for _, other := range others {
+			otherSources = append(otherSources, path.Join(other, filename))
+		}
+
+		_, err = s.AddLocale(lang.Name, lang.Description, source, otherSources...)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "add locale for %q", lang.Name)
+		}
+	}
+
+	return s, language.NewMatcher(tags), nil
 }
 
 // I18n returns a middleware handler that injects i18n.Locale into the request
@@ -79,16 +153,12 @@ func I18n(opts ...Options) flamego.Handler {
 			opts.Directory = "locales"
 		}
 
-		if opts.FileSystem == nil {
-			// todo: init new file system from opts.Directory and opts.AppendDirectories
-		}
-
 		if opts.NameFormat == "" {
 			opts.NameFormat = "locale_%s.ini"
 		}
 
-		if opts.URLParameter == "" {
-			opts.URLParameter = "lang"
+		if opts.QueryParameter == "" {
+			opts.QueryParameter = "lang"
 		}
 
 		if reflect.DeepEqual(opts.Cookie, CookieOptions{}) {
@@ -108,7 +178,7 @@ func I18n(opts ...Options) flamego.Handler {
 		if opts.Cookie.MaxAge <= 0 {
 			// TODO: math.MaxInt is only available since Go 1.17, should start using it once
 			//  Go 1.17 becomes the minimum required version.
-			opts.Cookie.MaxAge = 2 ^ 31 - 1 // = 2147483647 = 2038-01-19 04:14:07
+			opts.Cookie.MaxAge = 2 ^ 31 - 1 // = 2147483647
 		}
 
 		return opts
@@ -116,7 +186,68 @@ func I18n(opts ...Options) flamego.Handler {
 
 	opt = parseOptions(opt)
 
-	return flamego.ContextInvoker(func(c flamego.Context) {
+	store, matcher, err := initLocales(opt.Languages, opt.NameFormat, opt.FileSystem, opt.Directory, opt.AppendDirectories...)
+	if err != nil {
+		panic("i18n: init locales: " + err.Error())
+	}
 
+	fallback, err := store.Locale(opt.Default)
+	if err != nil {
+		panic("i18n: get fallback: " + err.Error())
+	}
+
+	return flamego.ContextInvoker(func(c flamego.Context) {
+		setCookie := func(lang string) {
+			c.SetCookie(
+				http.Cookie{
+					Name:     opt.Cookie.Name,
+					Value:    lang,
+					Path:     opt.Cookie.Path,
+					Domain:   opt.Cookie.Domain,
+					MaxAge:   opt.Cookie.MaxAge,
+					Secure:   opt.Cookie.Secure,
+					HttpOnly: opt.Cookie.HTTPOnly,
+					SameSite: opt.Cookie.SameSite,
+				},
+			)
+		}
+
+		// 1. Check URL query parameter
+		lang := c.Query(opt.QueryParameter)
+		if lang != "" {
+			setCookie(lang)
+		}
+
+		// 2. Check cookie
+		if lang == "" {
+			lang = c.Cookie(opt.Cookie.Name)
+		}
+
+		// 3. Check the first element in the "Accept-Language" header
+		if lang == "" {
+			tags, _, _ := language.ParseAcceptLanguage(c.Request().Header.Get("Accept-Language"))
+			tag, _, confidence := matcher.Match(tags...)
+			if confidence != language.No {
+				lang = tag.String()
+				setCookie(lang)
+			}
+		}
+
+		// 4. Fall back to default
+		if lang == "" {
+			lang = opt.Default
+			setCookie(lang)
+		}
+
+		current, err := store.Locale(lang)
+		if err != nil {
+			panic("i18n: get locale: " + err.Error())
+		}
+
+		local := &locale{
+			fallback: fallback,
+			current:  current,
+		}
+		c.MapTo(local, (*Locale)(nil))
 	})
 }
