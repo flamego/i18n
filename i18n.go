@@ -40,7 +40,9 @@ type CookieOptions struct {
 
 // Language contains the name and description of a language.
 type Language struct {
-	Name        string
+	// Name is the BCP 47 language name, e.g. "en-US".
+	Name string
+	// Description is the descriptive name of the language, e.g. "English".
 	Description string
 }
 
