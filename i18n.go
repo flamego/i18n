@@ -99,6 +99,15 @@ func (l *locale) Translate(key string, args ...interface{}) string {
 	return l.current.TranslateWithFallback(l.fallback, key, args...)
 }
 
+// isFile returns true if given path exists as a file (i.e. not a directory).
+func isFile(path string) bool {
+	f, e := os.Stat(path)
+	if e != nil {
+		return false
+	}
+	return !f.IsDir()
+}
+
 // initLocales initializes a locale store with list of provided languages
 // loading from http.FileSystem and/or local files. If both `fs` and `dir` are
 // provided, only `fs` is considered.
@@ -118,19 +127,22 @@ func initLocales(langs []Language, nameFormat string, fs http.FileSystem, dir st
 		if fs != nil {
 			source, err = fs.Open(filename)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "open %q from FileSystem", filename)
+				return nil, nil, errors.Wrap(err, "open from FileSystem")
 			}
 		} else {
-			fullpath := path.Join(dir, filename)
-			source, err = os.Open(fullpath)
+			source, err = os.Open(path.Join(dir, filename))
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "open %q from local", fullpath)
+				return nil, nil, errors.Wrap(err, "open from local")
 			}
 		}
 
 		otherSources := make([]interface{}, 0, len(others))
 		for _, other := range others {
-			otherSources = append(otherSources, path.Join(other, filename))
+			otherpath := path.Join(other, filename)
+			if !isFile(otherpath) {
+				continue
+			}
+			otherSources = append(otherSources, otherpath)
 		}
 
 		_, err = s.AddLocale(lang.Name, lang.Description, source, otherSources...)
@@ -144,23 +156,18 @@ func initLocales(langs []Language, nameFormat string, fs http.FileSystem, dir st
 
 // I18n returns a middleware handler that injects i18n.Locale into the request
 // context, which is used for localization.
-func I18n(opts ...Options) flamego.Handler {
-	var opt Options
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
+func I18n(opt Options) flamego.Handler {
 	parseOptions := func(opts Options) Options {
 		if opts.Directory == "" {
 			opts.Directory = "locales"
 		}
 
-		if len(opt.Languages) == 0 {
-			panic("i18n: no languages")
+		if len(opts.Languages) == 0 {
+			panic("i18n: no language is specified")
 		}
 
-		if opt.Default == "" {
-			opt.Default = opt.Languages[0].Name
+		if opts.Default == "" {
+			opts.Default = opts.Languages[0].Name
 		}
 
 		if opts.NameFormat == "" {
@@ -188,7 +195,7 @@ func I18n(opts ...Options) flamego.Handler {
 		if opts.Cookie.MaxAge <= 0 {
 			// TODO: math.MaxInt is only available since Go 1.17, should start using it once
 			//  Go 1.17 becomes the minimum required version.
-			opts.Cookie.MaxAge = 2 ^ 31 - 1 // = 2147483647
+			opts.Cookie.MaxAge = 1<<31 - 1 // = 2147483647
 		}
 
 		return opts
@@ -249,15 +256,20 @@ func I18n(opts ...Options) flamego.Handler {
 			setCookie(lang)
 		}
 
+		var l Locale
 		current, err := store.Locale(lang)
 		if err != nil {
-			panic("i18n: get locale: " + err.Error())
-		}
+			if err != i18n.ErrLocalNotFound {
+				panic("i18n: get locale: " + err.Error())
+			}
 
-		local := &locale{
-			fallback: fallback,
-			current:  current,
+			l = fallback
+		} else {
+			l = &locale{
+				fallback: fallback,
+				current:  current,
+			}
 		}
-		c.MapTo(local, (*Locale)(nil))
+		c.MapTo(l, (*Locale)(nil))
 	})
 }

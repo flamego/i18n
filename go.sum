@@ -11,6 +11,8 @@ github.com/flamego/flamego v0.0.0-20210831044743-573bf1411fd9 h1:USv46KEornQvE4p
 github.com/flamego/flamego v0.0.0-20210831044743-573bf1411fd9/go.mod h1:apiAxIxeHujHFX4Yr0BHmQFJuZUM07XztdQSChbeuPw=
 github.com/go-i18n/i18n v0.0.0-20210908133030-4c4518538ed0 h1:9jLbOj1oF1mKlWiYuX71atZK3IckeQu14kqFGPxPPsA=
 github.com/go-i18n/i18n v0.0.0-20210908133030-4c4518538ed0/go.mod h1:zgahFGkaQYuAMZ8+Eu4OYeaKo5xTeePneZZ63rTAFTs=
+github.com/go-i18n/i18n v0.0.0-20210912133738-0075763f4213 h1:JFz/V97k8wKkUusAP9VjrkE1wxG3FXKMSFCThK7EbxQ=
+github.com/go-i18n/i18n v0.0.0-20210912133738-0075763f4213/go.mod h1:zgahFGkaQYuAMZ8+Eu4OYeaKo5xTeePneZZ63rTAFTs=
 github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 h1:EGx4pi6eqNxGaHF6qqu48+N2wcFQ5qg5FXgOdqsJ5d8=
 github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1/go.mod h1:wJfORRmW1u3UXTncJ5qlYoELFm8eSnnEO6hX4iZ3EWY=
 github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7C0MuV77Wo=
