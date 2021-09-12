@@ -15,7 +15,41 @@ The minimum requirement of Go is **1.16**.
 
 ## Getting started
 
-_Stay tuned!_
+```ini
+# locales/locale_en-US.ini
+greeting = How are you?
+```
+
+```ini
+# locales/locale_zh-CN.ini
+greeting = 你好吗？
+```
+
+```go
+package main
+
+import (
+	"github.com/flamego/flamego"
+	"github.com/flamego/i18n"
+)
+
+func main() {
+	f := flamego.Classic()
+	f.Use(i18n.I18n(
+		i18n.Options{
+			Languages: []i18n.Language{
+				{Name: "en-US", Description: "English"},
+				{Name: "zh-CN", Description: "简体中文"},
+			},
+		},
+	))
+	f.Get("/", func(l i18n.Locale) {
+		message := l.Translate("greeting")
+		// ...
+	})
+	f.Run()
+}
+```
 
 ## License
 
