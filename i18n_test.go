@@ -29,8 +29,9 @@ func TestI18n(t *testing.T) {
 	})
 
 	t.Run("bad local directory", func(t *testing.T) {
-		require.PanicsWithValue(t,
-			"i18n: init locales: open from local: open 404/locale_en-US.ini: no such file or directory",
+		// NOTE: Do not assert value due to Windows and Linux/macOS return different
+		//  strings on "file not found".
+		require.Panics(t,
 			func() {
 				f := flamego.NewWithLogger(&bytes.Buffer{})
 				f.Use(I18n(
