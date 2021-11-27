@@ -12,9 +12,9 @@ import (
 	"path"
 	"reflect"
 
-	"github.com/go-i18n/i18n"
 	"github.com/pkg/errors"
 	"golang.org/x/text/language"
+	"unknwon.dev/i18n"
 
 	"github.com/flamego/flamego"
 )
