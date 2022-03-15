@@ -51,8 +51,9 @@ jobs:
           file: ./coverage
           flags: unittests
       - name: Report test coverage to DeepSource
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
         uses: deepsourcelabs/test-coverage-action@master
         with:
-          key: python
-          coverage-file: coverage.xml
+          key: go
+          coverage-file: coverage
           dsn: ${{ secrets.DEEPSOURCE_DSN }}
