@@ -6,7 +6,7 @@ require (
 	github.com/flamego/flamego v1.9.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/text v0.10.0
+	golang.org/x/text v0.11.0
 	unknwon.dev/i18n v1.0.1
 )
 
