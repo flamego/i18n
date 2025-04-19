@@ -9,7 +9,7 @@ Package i18n is a middleware that provides internationalization and localization
 
 ## Installation
 
-The minimum requirement of Go is **1.18**.
+The minimum requirement of Go is **1.24**.
 
 	go get github.com/flamego/i18n
 
