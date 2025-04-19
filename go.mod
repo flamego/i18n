@@ -1,12 +1,12 @@
 module github.com/flamego/i18n
 
-go 1.18
+go 1.24
 
 require (
 	github.com/flamego/flamego v1.9.5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/text v0.22.0
+	golang.org/x/text v0.23.0
 	unknwon.dev/i18n v1.0.1
 )
 
