@@ -79,7 +79,7 @@ type Locale interface {
 	Description() string
 	// Translate translates the message of the given key. It falls back to use the
 	// "Default" to translate if the given key does not exist in the current locale.
-	Translate(key string, args ...interface{}) string
+	Translate(key string, args ...any) string
 }
 
 type locale struct {
@@ -95,7 +95,7 @@ func (l *locale) Description() string {
 	return l.current.Description()
 }
 
-func (l *locale) Translate(key string, args ...interface{}) string {
+func (l *locale) Translate(key string, args ...any) string {
 	return l.current.TranslateWithFallback(l.fallback, key, args...)
 }
 
@@ -136,7 +136,7 @@ func initLocales(langs []Language, nameFormat string, fs http.FileSystem, dir st
 			}
 		}
 
-		otherSources := make([]interface{}, 0, len(others))
+		otherSources := make([]any, 0, len(others))
 		for _, other := range others {
 			otherpath := path.Join(other, filename)
 			if !isFile(otherpath) {
